@@ -1,0 +1,7 @@
+torch
+jupyter
+pillow
+torchvision
+pyOpenSSL # Not sure why I need this
+urllib3<2.0
+tqdm
