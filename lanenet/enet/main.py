@@ -31,11 +31,7 @@ def eval_model(model, test_dataset, custom_weight_scaling_const):
     for epoch in range(max_epoch):
         in_tensor, target = next(dataset_iter)
         logits = model(in_tensor)
-        target_flat = target.view(-1)
-        probabilities = batched_bincount(target_flat, 1, target_flat.shape[1]) / target_flat.sum(dim=1).unsqueeze(dim=1)
-        weights = torch.clamp(torch.div(1.0, (torch.log(torch.add(custom_weight_scaling_const, probabilities)))), 1.0, 50.0)
-        loss = torch.nn.functional.cross_entropy(logits, target.squeeze().type(torch.int64), reduction='none').view(target.shape[0], -1)
-        loss = (loss * weights / weights.sum()).sum()
+        loss = compute_loss(logits, target, custom_weight_scaling_const)
         average_loss += loss.item()
     average_loss /= max_epoch
     print(f'Evaluation Loss={average_loss}')
@@ -61,6 +57,16 @@ def batched_bincount(x, dim, num_classes):
     values = torch.ones_like(x, dtype=torch.int64)
     target.scatter_add_(dim, x, values)
     return target
+
+
+def compute_loss(logits, target, custom_weight_scaling_const):
+    target_flat = target.type(torch.int64).view(target.shape[0], -1)
+    probabilities = batched_bincount(target_flat, 1, target_flat.shape[1]) / target_flat.sum(dim=1).unsqueeze(dim=1)
+    weights = torch.clamp(torch.div(1.0, (torch.log(torch.add(custom_weight_scaling_const, probabilities)))), 1.0, 50.0)
+    loss = torch.nn.functional.cross_entropy(logits, target.squeeze().type(torch.int64), reduction='none').view(
+        target.shape[0], -1)
+    loss = (loss * weights / weights.sum()).sum()
+    return loss
 
 
 def main():
@@ -99,11 +105,7 @@ def main():
     for epoch in progress_bar:
         in_tensor, target = next(dataset_iter)
         logits = model(in_tensor)
-        target_flat = target.type(torch.int64).view(target.shape[0], -1)
-        probabilities = batched_bincount(target_flat, 1, target_flat.shape[1]) / target_flat.sum(dim=1).unsqueeze(dim=1)
-        weights = torch.clamp(torch.div(1.0, (torch.log(torch.add(custom_weight_scaling_const, probabilities)))), 1.0, 50.0)
-        loss = torch.nn.functional.cross_entropy(logits, target.squeeze().type(torch.int64), reduction='none').view(target.shape[0], -1)
-        loss = (loss * weights / weights.sum()).sum()
+        loss = compute_loss(logits, target, custom_weight_scaling_const)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
