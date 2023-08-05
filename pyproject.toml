@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "enet_seifeddine_dridi"
-version = "0.0.8"
+version = "0.0.11"
 authors = [
   { name="Seifeddine Dridi", email="seifeddine.dridi89@gmail.com" },
 ]

@@ -49,13 +49,12 @@ class Bottleneck(nn.Module):
         conv_out_features = out_channels
         if bottleneck_type == BottleneckType.REGULAR:
             conv_out_features = in_channels
-            self.projection = nn.Conv2d(in_channels, in_channels // 2, 1, 1, bias=False)
-            self.batch_norm_1 = nn.BatchNorm2d(in_channels // 2)
-            self.prelu_1 = torch.nn.PReLU(in_channels // 2)
-            output_channels_2 = in_channels if conv_type == ConvolutionType.DECONVOLUTION else in_channels // 2
-            self.batch_norm_2 = nn.BatchNorm2d(output_channels_2)
-            self.prelu_2 = torch.nn.PReLU(output_channels_2)
-            self.expansion = nn.Conv2d(output_channels_2, in_channels, 1, 1, bias=False)
+            self.projection = nn.Conv2d(in_channels, conv_out_features // 2, 1, 1, bias=False)
+            self.batch_norm_1 = nn.BatchNorm2d(conv_out_features // 2)
+            self.prelu_1 = torch.nn.PReLU(conv_out_features // 2)
+            self.batch_norm_2 = nn.BatchNorm2d(conv_out_features // 2)
+            self.prelu_2 = torch.nn.PReLU(conv_out_features // 2)
+            self.expansion = nn.Conv2d(conv_out_features // 2, conv_out_features, 1, 1, bias=False)
             self.batch_norm_3 = nn.BatchNorm2d(out_channels)
             self.max_pooling = None
             self.padding = None
@@ -80,8 +79,7 @@ class Bottleneck(nn.Module):
             self.expansion = nn.Conv2d(conv_out_features, conv_out_features, 1, 1, bias=False)
             self.batch_norm_3 = nn.BatchNorm2d(out_channels)
             self.max_pooling = nn.MaxUnpool2d(2, 2)
-            self.padding = nn.Conv2d(in_channels, conv_out_features, kernel_size=3, stride=1, bias=False,
-                                     padding='same')
+            self.padding = nn.Conv2d(in_channels, conv_out_features, kernel_size=3, stride=1, bias=False, padding='same')
         # Convolution configuration
         if conv_type == ConvolutionType.REGULAR:
             self.conv = nn.Conv2d(conv_out_features // 2, conv_out_features // 2, kernel_size, stride,
@@ -186,13 +184,13 @@ class EnetStage4(nn.Module):
         bottlenecks = list()
         # 4.0
         bottlenecks.append(
-            Bottleneck(BottleneckType.UPSAMPLING, ConvolutionType.DECONVOLUTION, 128, 64, 2, 2, 0.1, output_size))
+            Bottleneck(BottleneckType.UPSAMPLING, ConvolutionType.DECONVOLUTION, 128, 64, 2, 2, 0.1, output_size, 1))
         # 4.1
         bottlenecks.append(
-            Bottleneck(BottleneckType.REGULAR, ConvolutionType.REGULAR, 64, 64, 2, 1, 0.1, output_size))
+            Bottleneck(BottleneckType.REGULAR, ConvolutionType.REGULAR, 64, 64, 2, 1, 0.1, output_size, 1))
         # 4.2
         bottlenecks.append(
-            Bottleneck(BottleneckType.REGULAR, ConvolutionType.REGULAR, 64, 64, 2, 1, 0.1, output_size))
+            Bottleneck(BottleneckType.REGULAR, ConvolutionType.REGULAR, 64, 64, 2, 1, 0.1, output_size, 1))
         self.model = EnetSequential(*bottlenecks)
 
     def forward(self, t, indices=None):
@@ -205,10 +203,10 @@ class EnetStage5(nn.Module):
         bottlenecks = list()
         # 5.0
         bottlenecks.append(
-            Bottleneck(BottleneckType.UPSAMPLING, ConvolutionType.DECONVOLUTION, 64, 16, 2, 2, 0.1, output_size))
+            Bottleneck(BottleneckType.UPSAMPLING, ConvolutionType.DECONVOLUTION, 64, 16, 2, 2, 0.1, output_size, 1))
         # 5.1
         bottlenecks.append(
-            Bottleneck(BottleneckType.REGULAR, ConvolutionType.REGULAR, 16, 16, 2, 1, 0.1, output_size))
+            Bottleneck(BottleneckType.REGULAR, ConvolutionType.REGULAR, 16, 16, 2, 1, 0.1, output_size, 1))
         self.model = EnetSequential(*bottlenecks)
 
     def forward(self, t, indices=None):

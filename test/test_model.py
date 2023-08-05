@@ -3,7 +3,8 @@ import unittest
 import torch as torch
 from torch import nn
 
-from src import enet
+import lanenet.enet as enet
+from lanenet.enet.model import InitialBlock
 
 
 class BottleStagesTestCase(unittest.TestCase):

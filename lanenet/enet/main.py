@@ -22,7 +22,7 @@ def load_dataset(dataset_root_folder, scale_input_size, scale_target_size, batch
     return DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=1)
 
 
-def eval_model(model, test_dataset, out_channels, custom_weight_scaling_const):
+def eval_model(model, test_dataset, custom_weight_scaling_const):
     model.train(False)
     torch.manual_seed(int(time()))
     dataset_iter = itertools.cycle(iter(test_dataset))
@@ -32,9 +32,10 @@ def eval_model(model, test_dataset, out_channels, custom_weight_scaling_const):
         in_tensor, target = next(dataset_iter)
         logits = model(in_tensor)
         target_flat = target.view(-1)
-        probabilities = torch.div(torch.bincount(target_flat, minlength=out_channels), target_flat.shape[0])
-        weights = torch.div(1.0, (torch.log(custom_weight_scaling_const + probabilities)))
-        loss = torch.nn.functional.cross_entropy(logits.view(-1, out_channels), target_flat, weights)
+        probabilities = batched_bincount(target_flat, 1, target_flat.shape[1]) / target_flat.sum(dim=1).unsqueeze(dim=1)
+        weights = torch.clamp(torch.div(1.0, (torch.log(torch.add(custom_weight_scaling_const, probabilities)))), 1.0, 50.0)
+        loss = torch.nn.functional.cross_entropy(logits, target.squeeze().type(torch.int64), reduction='none').view(target.shape[0], -1)
+        loss = (loss * weights / weights.sum()).sum()
         average_loss += loss.item()
     average_loss /= max_epoch
     print(f'Evaluation Loss={average_loss}')
@@ -54,6 +55,14 @@ def save_training_checkpoint(model, optimizer, loss, epoch, max_epoch):
     }, filepath)
 
 
+@torch.no_grad()
+def batched_bincount(x, dim, num_classes):
+    target = torch.zeros((x.shape[0], num_classes), dtype=x.dtype, device=x.device)
+    values = torch.ones_like(x, dtype=torch.int64)
+    target.scatter_add_(dim, x, values)
+    return target
+
+
 def main():
     batch_size = 10
     max_epoch = 1000
@@ -62,23 +71,39 @@ def main():
     from dataset.labels import labels
     out_channels = len(labels)
     device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
-    image_size = (256, 512)
     train_full_model = False
-    target_image_size = image_size if train_full_model is True else (image_size[0] // 8, image_size[1] // 8)
+    load_full_model = False
+    image_size = (256, 512)
+    target_image_size = image_size if train_full_model else (image_size[0] // 8, image_size[1] // 8)
     model = Enet(image_size, out_channels, train_full_model)
-    model.to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=5e-4, weight_decay=2e-4, betas=(0.9, 0.99), eps=1e-6)
-    train_dataset = load_dataset(dataset_root_folder, image_size, target_image_size, batch_size, 'coarse')
+    if load_full_model:
+        checkpoint_filepath = 'pretrained_model/enet_model.pt'
+        checkpoint = torch.load(checkpoint_filepath, map_location=device)
+        print(f'Checkpoint file {checkpoint_filepath} successfully loaded')
+    else:
+        checkpoint_filepath = 'pretrained_model/enet_model_encoder_only.pt'
+        checkpoint = torch.load(checkpoint_filepath, map_location=device)
+        print(f'Checkpoint file {checkpoint_filepath} successfully loaded')
+        if train_full_model is True:
+            # Remove the last full_convolution layer
+            del checkpoint['model_state_dict']['full_conv.weight']
+
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model.to(device)
+    model.train()
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    train_dataset = load_dataset(dataset_root_folder, image_size, target_image_size, batch_size)
     dataset_iter = itertools.cycle(iter(train_dataset))
     progress_bar = tqdm.trange(0, max_epoch)
     for epoch in progress_bar:
         in_tensor, target = next(dataset_iter)
         logits = model(in_tensor)
-        target_flat = target.view(-1)
-        probabilities = torch.div(torch.bincount(target_flat, minlength=out_channels), target_flat.shape[0])
-        weights = torch.clamp(torch.div(1.0, (torch.log(torch.add(custom_weight_scaling_const, probabilities)))), 1.0,
-                              50.0)
-        loss = torch.nn.functional.cross_entropy(logits.view(-1, out_channels), target_flat, weights)
+        target_flat = target.type(torch.int64).view(target.shape[0], -1)
+        probabilities = batched_bincount(target_flat, 1, target_flat.shape[1]) / target_flat.sum(dim=1).unsqueeze(dim=1)
+        weights = torch.clamp(torch.div(1.0, (torch.log(torch.add(custom_weight_scaling_const, probabilities)))), 1.0, 50.0)
+        loss = torch.nn.functional.cross_entropy(logits, target.squeeze().type(torch.int64), reduction='none').view(target.shape[0], -1)
+        loss = (loss * weights / weights.sum()).sum()
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
