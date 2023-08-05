@@ -1,4 +1,5 @@
 import itertools
+from dataclasses import dataclass
 from datetime import datetime
 from time import time
 
@@ -8,6 +9,22 @@ import tqdm as tqdm
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 from model import Enet
+from dataset.labels import labels
+
+
+@dataclass
+class EnetConfig:
+    batch_size = 10
+    max_epoch = 1000
+    custom_weight_scaling_const = 1.02
+    dataset_root_folder = 'datasets/cityscapes/data_unzipped'
+    train_full_model = False
+    load_full_model = False
+    image_size = (256, 512)
+    scaling_props_range = (1.0, 50.0)
+
+    def __init__(self):
+        self.target_image_size = self.image_size if self.train_full_model else (self.image_size[0] // 8, self.image_size[1] // 8)
 
 
 def load_dataset(dataset_root_folder, scale_input_size, scale_target_size, batch_size=4, mode='coarse', split='train'):
@@ -22,7 +39,7 @@ def load_dataset(dataset_root_folder, scale_input_size, scale_target_size, batch
     return DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=1)
 
 
-def eval_model(model, test_dataset, custom_weight_scaling_const):
+def eval_model(model, test_dataset, custom_weight_scaling_const, scaling_props_range):
     model.train(False)
     torch.manual_seed(int(time()))
     dataset_iter = itertools.cycle(iter(test_dataset))
@@ -31,7 +48,7 @@ def eval_model(model, test_dataset, custom_weight_scaling_const):
     for epoch in range(max_epoch):
         in_tensor, target = next(dataset_iter)
         logits = model(in_tensor)
-        loss = compute_loss(logits, target, custom_weight_scaling_const)
+        loss = compute_loss(logits, target, custom_weight_scaling_const, scaling_props_range)
         average_loss += loss.item()
     average_loss /= max_epoch
     print(f'Evaluation Loss={average_loss}')
@@ -59,30 +76,41 @@ def batched_bincount(x, dim, num_classes):
     return target
 
 
-def compute_loss(logits, target, custom_weight_scaling_const):
+def compute_loss(logits, target, custom_weight_scaling_const, scaling_props_range):
     target_flat = target.type(torch.int64).view(target.shape[0], -1)
     probabilities = batched_bincount(target_flat, 1, target_flat.shape[1]) / target_flat.sum(dim=1).unsqueeze(dim=1)
-    weights = torch.clamp(torch.div(1.0, (torch.log(torch.add(custom_weight_scaling_const, probabilities)))), 1.0, 50.0)
+    weights = torch.clamp(torch.div(1.0, (torch.log(torch.add(custom_weight_scaling_const, probabilities)))), scaling_props_range[0], scaling_props_range[1])
     loss = torch.nn.functional.cross_entropy(logits, target.squeeze().type(torch.int64), reduction='none').view(
         target.shape[0], -1)
     loss = (loss * weights / weights.sum()).sum()
     return loss
 
 
+
+
 def main():
-    batch_size = 10
-    max_epoch = 1000
-    custom_weight_scaling_const = 1.02
-    dataset_root_folder = 'datasets/cityscapes/data_unzipped'
-    from dataset.labels import labels
+    config = EnetConfig()
     out_channels = len(labels)
     device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
-    train_full_model = False
-    load_full_model = False
-    image_size = (256, 512)
-    target_image_size = image_size if train_full_model else (image_size[0] // 8, image_size[1] // 8)
-    model = Enet(image_size, out_channels, train_full_model)
+    model = Enet(config.image_size, out_channels, config.train_full_model)
     optimizer = torch.optim.AdamW(model.parameters(), lr=5e-4, weight_decay=2e-4, betas=(0.9, 0.99), eps=1e-6)
+    load_model(model, optimizer, device, config.load_full_model, config.train_full_model)
+    model.train()
+    train_dataset = load_dataset(config.dataset_root_folder, config.image_size, config.target_image_size, config.batch_size)
+    dataset_iter = itertools.cycle(iter(train_dataset))
+    progress_bar = tqdm.trange(0, config.max_epoch)
+    for epoch in progress_bar:
+        in_tensor, target = next(dataset_iter)
+        logits = model(in_tensor)
+        loss = compute_loss(logits, target, config.custom_weight_scaling_const, config.scaling_props_range)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        progress_bar.set_description(f"Epoch [{epoch}/{config.max_epoch}]")
+        progress_bar.set_postfix(loss=loss.item())
+
+
+def load_model(model, optimizer, device, load_full_model, train_full_model):
     if load_full_model:
         checkpoint_filepath = 'pretrained_model/enet_model.pt'
         checkpoint = torch.load(checkpoint_filepath, map_location=device)
@@ -94,23 +122,9 @@ def main():
         if train_full_model is True:
             # Remove the last full_convolution layer
             del checkpoint['model_state_dict']['full_conv.weight']
-
     model.load_state_dict(checkpoint['model_state_dict'])
     model.to(device)
-    model.train()
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    train_dataset = load_dataset(dataset_root_folder, image_size, target_image_size, batch_size)
-    dataset_iter = itertools.cycle(iter(train_dataset))
-    progress_bar = tqdm.trange(0, max_epoch)
-    for epoch in progress_bar:
-        in_tensor, target = next(dataset_iter)
-        logits = model(in_tensor)
-        loss = compute_loss(logits, target, custom_weight_scaling_const)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        progress_bar.set_description(f"Epoch [{epoch}/{max_epoch}]")
-        progress_bar.set_postfix(loss=loss.item())
 
 
 if __name__ == '__main__':
