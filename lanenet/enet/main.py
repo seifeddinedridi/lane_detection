@@ -24,7 +24,8 @@ class EnetConfig:
     scaling_props_range = (1.0, 50.0)
 
     def __init__(self):
-        self.target_image_size = self.image_size if self.train_full_model else (self.image_size[0] // 8, self.image_size[1] // 8)
+        self.target_image_size = self.image_size if self.train_full_model else (
+        self.image_size[0] // 8, self.image_size[1] // 8)
 
 
 def load_dataset(dataset_root_folder, scale_input_size, scale_target_size, batch_size=4, mode='coarse', split='train'):
@@ -68,48 +69,6 @@ def save_training_checkpoint(model, optimizer, loss, epoch, max_epoch):
     }, filepath)
 
 
-@torch.no_grad()
-def batched_bincount(x, dim, num_classes):
-    target = torch.zeros((x.shape[0], num_classes), dtype=x.dtype, device=x.device)
-    values = torch.ones_like(x, dtype=torch.int64)
-    target.scatter_add_(dim, x, values)
-    return target
-
-
-def compute_loss(logits, target, custom_weight_scaling_const, scaling_props_range):
-    target_flat = target.type(torch.int64).view(target.shape[0], -1)
-    probabilities = batched_bincount(target_flat, 1, target_flat.shape[1]) / target_flat.sum(dim=1).unsqueeze(dim=1)
-    weights = torch.clamp(torch.div(1.0, (torch.log(torch.add(custom_weight_scaling_const, probabilities)))), scaling_props_range[0], scaling_props_range[1])
-    loss = torch.nn.functional.cross_entropy(logits, target.squeeze().type(torch.int64), reduction='none').view(
-        target.shape[0], -1)
-    loss = (loss * weights / weights.sum()).sum()
-    return loss
-
-
-
-
-def main():
-    config = EnetConfig()
-    out_channels = len(labels)
-    device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
-    model = Enet(config.image_size, out_channels, config.train_full_model)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=5e-4, weight_decay=2e-4, betas=(0.9, 0.99), eps=1e-6)
-    load_model(model, optimizer, device, config.load_full_model, config.train_full_model)
-    model.train()
-    train_dataset = load_dataset(config.dataset_root_folder, config.image_size, config.target_image_size, config.batch_size)
-    dataset_iter = itertools.cycle(iter(train_dataset))
-    progress_bar = tqdm.trange(0, config.max_epoch)
-    for epoch in progress_bar:
-        in_tensor, target = next(dataset_iter)
-        logits = model(in_tensor)
-        loss = compute_loss(logits, target, config.custom_weight_scaling_const, config.scaling_props_range)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        progress_bar.set_description(f"Epoch [{epoch}/{config.max_epoch}]")
-        progress_bar.set_postfix(loss=loss.item())
-
-
 def load_model(model, optimizer, device, load_full_model, train_full_model):
     if load_full_model:
         checkpoint_filepath = 'pretrained_model/enet_model.pt'
@@ -125,6 +84,48 @@ def load_model(model, optimizer, device, load_full_model, train_full_model):
     model.load_state_dict(checkpoint['model_state_dict'])
     model.to(device)
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+
+@torch.no_grad()
+def batched_bincount(x, dim, num_classes):
+    target = torch.zeros((x.shape[0], num_classes), dtype=x.dtype, device=x.device)
+    values = torch.ones_like(x, dtype=torch.int64)
+    target.scatter_add_(dim, x, values)
+    return target
+
+
+def compute_loss(logits, target, custom_weight_scaling_const, scaling_props_range):
+    target_flat = target.type(torch.int64).view(target.shape[0], -1)
+    probabilities = batched_bincount(target_flat, 1, target_flat.shape[1]) / target_flat.sum(dim=1).unsqueeze(dim=1)
+    weights = torch.clamp(torch.div(1.0, (torch.log(torch.add(custom_weight_scaling_const, probabilities)))),
+                          scaling_props_range[0], scaling_props_range[1])
+    loss = torch.nn.functional.cross_entropy(logits, target.squeeze().type(torch.int64), reduction='none').view(
+        target.shape[0], -1)
+    loss = (loss * weights / weights.sum()).sum()
+    return loss
+
+
+def main():
+    config = EnetConfig()
+    out_channels = len(labels)
+    device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
+    model = Enet(config.image_size, out_channels, config.train_full_model)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=5e-4, weight_decay=2e-4, betas=(0.9, 0.99), eps=1e-6)
+    load_model(model, optimizer, device, config.load_full_model, config.train_full_model)
+    model.train()
+    train_dataset = load_dataset(config.dataset_root_folder, config.image_size, config.target_image_size,
+                                 config.batch_size)
+    dataset_iter = itertools.cycle(iter(train_dataset))
+    progress_bar = tqdm.trange(0, config.max_epoch)
+    for epoch in progress_bar:
+        in_tensor, target = next(dataset_iter)
+        logits = model(in_tensor)
+        loss = compute_loss(logits, target, config.custom_weight_scaling_const, config.scaling_props_range)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        progress_bar.set_description(f"Epoch [{epoch}/{config.max_epoch}]")
+        progress_bar.set_postfix(loss=loss.item())
 
 
 if __name__ == '__main__':

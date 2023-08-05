@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "enet_seifeddine_dridi"
-version = "0.0.11"
+version = "0.0.12"
 authors = [
   { name="Seifeddine Dridi", email="seifeddine.dridi89@gmail.com" },
 ]
@@ -16,3 +16,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+
+[tool.setuptools.packages.find]
+include = ["lanenet"]

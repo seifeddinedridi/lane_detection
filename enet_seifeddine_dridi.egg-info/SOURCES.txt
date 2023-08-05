@@ -1,0 +1,8 @@
+LICENSE
+README.md
+pyproject.toml
+enet_seifeddine_dridi.egg-info/PKG-INFO
+enet_seifeddine_dridi.egg-info/SOURCES.txt
+enet_seifeddine_dridi.egg-info/dependency_links.txt
+enet_seifeddine_dridi.egg-info/top_level.txt
+test/test_model.py
