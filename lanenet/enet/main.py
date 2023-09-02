@@ -18,14 +18,19 @@ class EnetConfig:
     max_epoch = 1000
     custom_weight_scaling_const = 1.02
     dataset_root_folder = 'datasets/cityscapes/data_unzipped'
-    train_full_model = False
-    load_full_model = False
+    train_full_model = bool
+    pretrained_model_path: str
     image_size = (256, 512)
     scaling_props_range = (1.0, 50.0)
 
-    def __init__(self):
+    def __init__(self, pretrained_model_path, train_full_model):
+        self.train_full_model = train_full_model
         self.target_image_size = self.image_size if self.train_full_model else (
-        self.image_size[0] // 8, self.image_size[1] // 8)
+            self.image_size[0] // 8, self.image_size[1] // 8)
+        self.pretrained_model_path = pretrained_model_path.strip()
+
+    def load_model(self):
+        return self.pretrained_model_path is not None and self.pretrained_model_path != ''
 
 
 def load_dataset(dataset_root_folder, scale_input_size, scale_target_size, batch_size=4, mode='coarse', split='train'):
@@ -69,18 +74,12 @@ def save_training_checkpoint(model, optimizer, loss, epoch, max_epoch):
     }, filepath)
 
 
-def load_model(model, optimizer, device, load_full_model, train_full_model):
-    if load_full_model:
-        checkpoint_filepath = 'pretrained_model/enet_model.pt'
-        checkpoint = torch.load(checkpoint_filepath, map_location=device)
-        print(f'Checkpoint file {checkpoint_filepath} successfully loaded')
-    else:
-        checkpoint_filepath = 'pretrained_model/enet_model_encoder_only.pt'
-        checkpoint = torch.load(checkpoint_filepath, map_location=device)
-        print(f'Checkpoint file {checkpoint_filepath} successfully loaded')
-        if train_full_model is True:
-            # Remove the last full_convolution layer
-            del checkpoint['model_state_dict']['full_conv.weight']
+def load_model(model, optimizer, device, checkpoint_filepath, train_full_model):
+    checkpoint = torch.load(checkpoint_filepath, map_location=device)
+    print(f'Checkpoint file {checkpoint_filepath} successfully loaded')
+    if train_full_model is True:
+        # Remove the last full_convolution layer
+        del checkpoint['model_state_dict']['full_conv.weight']
     model.load_state_dict(checkpoint['model_state_dict'])
     model.to(device)
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -106,12 +105,13 @@ def compute_loss(logits, target, custom_weight_scaling_const, scaling_props_rang
 
 
 def main():
-    config = EnetConfig()
+    config = EnetConfig('pretrained_model/enet_model_encoder_only.pt', False)
     out_channels = len(labels)
     device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
     model = Enet(config.image_size, out_channels, config.train_full_model)
     optimizer = torch.optim.AdamW(model.parameters(), lr=5e-4, weight_decay=2e-4, betas=(0.9, 0.99), eps=1e-6)
-    load_model(model, optimizer, device, config.load_full_model, config.train_full_model)
+    if config.load_model():
+        load_model(model, optimizer, device, config.pretrained_model_path, config.train_full_model)
     model.train()
     train_dataset = load_dataset(config.dataset_root_folder, config.image_size, config.target_image_size,
                                  config.batch_size)
