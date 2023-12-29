@@ -80,9 +80,9 @@ def load_model(model, optimizer, device, checkpoint_filepath, train_full_model):
     if train_full_model is True:
         # Remove the last full_convolution layer
         del checkpoint['model_state_dict']['full_conv.weight']
-    model.load_state_dict(checkpoint['model_state_dict'])
+    model.load_state_dict(checkpoint['model_state_dict'], strict=False)
     model.to(device)
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    # optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
 
 @torch.no_grad()
@@ -105,7 +105,7 @@ def compute_loss(logits, target, custom_weight_scaling_const, scaling_props_rang
 
 
 def main():
-    config = EnetConfig('pretrained_model/enet_model_encoder_only.pt', False)
+    config = EnetConfig('pretrained_model/enet_model_encoder_only.pt', True)
     out_channels = len(labels)
     device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
     model = Enet(config.image_size, out_channels, config.train_full_model)

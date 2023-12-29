@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
-Name: enet-seifeddine-dridi
-Version: 0.0.12
+Name: enet_seifeddine_dridi
+Version: 0.0.14
 Summary: An implementation of the Enet architecture using PyTorch
 Author-email: Seifeddine Dridi <seifeddine.dridi89@gmail.com>
 Classifier: Programming Language :: Python :: 3
