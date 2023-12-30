@@ -6,8 +6,10 @@ enet_seifeddine_dridi.egg-info/SOURCES.txt
 enet_seifeddine_dridi.egg-info/dependency_links.txt
 enet_seifeddine_dridi.egg-info/top_level.txt
 lanenet/enet/__init__.py
+lanenet/enet/config.py
 lanenet/enet/main.py
 lanenet/enet/model.py
+lanenet/enet/model_utils.py
 lanenet/enet/dataset/__init__.py
 lanenet/enet/dataset/labels.py
 lanenet/enet/dataset/loader.py

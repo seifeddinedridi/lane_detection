@@ -79,7 +79,8 @@ class Bottleneck(nn.Module):
             self.expansion = nn.Conv2d(conv_out_features, conv_out_features, 1, 1, bias=False)
             self.batch_norm_3 = nn.BatchNorm2d(out_channels)
             self.max_pooling = nn.MaxUnpool2d(2, 2)
-            self.padding = nn.Conv2d(in_channels, conv_out_features, kernel_size=3, stride=1, bias=False, padding='same')
+            self.padding = nn.Conv2d(in_channels, conv_out_features, kernel_size=3, stride=1, bias=False,
+                                     padding='same')
         # Convolution configuration
         if conv_type == ConvolutionType.REGULAR:
             self.conv = nn.Conv2d(conv_out_features // 2, conv_out_features // 2, kernel_size, stride,

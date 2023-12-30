@@ -4,11 +4,8 @@ from types import SimpleNamespace
 
 import torch
 import torchvision
-from PIL import Image
-from torch.utils.data import Dataset
-from torchvision.transforms import functional
-
 from dataset.model import CityScapeAnnotatedImage, CityScapeRegion, CityScapeLabel
+from torch.utils.data import Dataset
 
 
 def load_json_dataset(filepath):
