@@ -21,13 +21,7 @@ The model consists of 7 stages:
 It should output an image where the pixels are labeled with a number ranging from [0..C) where C is the number of classes.
 
 ## What would be the input to the loss function?
-The loss function takes a set of 
-
-
-Start Jupyter notebook
-```bash
-jupyter notebook
-```
+TODO
 
 ## Install dependencies
 
@@ -54,6 +48,11 @@ python3 -m unittest discover
 ```bash
 python3 -m pip install --upgrade build
 python3 -m build
+```
+
+Start Jupyter notebook
+```bash
+jupyter notebook
 ```
 
 ## Uploading the distribution archives
