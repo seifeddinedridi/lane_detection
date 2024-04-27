@@ -1,6 +1,7 @@
 datasets
 dist
 lanenet
+notebook
 pretrained_model
 test
 venv

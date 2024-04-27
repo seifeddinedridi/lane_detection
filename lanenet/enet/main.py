@@ -2,14 +2,15 @@ from time import time
 
 import torch
 from tqdm import tqdm
+
 from lanenet.enet.config import EnetConfig
 from lanenet.enet.model_utils import load_model, eval_model, compute_loss
 
 
 def main():
-    pretrained_model_path = 'pretrained_model/enet_model_894.pt'
-    # pretrained_model_path = None
-    config = EnetConfig(pretrained_model_path=pretrained_model_path, train_full_model=True)
+    # pretrained_model_path = 'pretrained_model/enet_model_894.pt'
+    pretrained_model_path = None
+    config = EnetConfig(pretrained_model_path=pretrained_model_path, train_full_model=False, max_epoch=1000)
     device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
     torch.multiprocessing.set_start_method('spawn')
     torch.set_flush_denormal(True)

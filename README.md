@@ -67,4 +67,7 @@ python3 -m twine upload --repository testpypi dist/*
 
 ```bash
 tar -xf datasets/cityscapes/data/gtCoarse.zip -C datasets/cityscapes/data_unzipped/
+tar -xf datasets/cityscapes/data/gtFine_trainvaltest.zip -C datasets/cityscapes/data_unzipped/
+tar -xf datasets/cityscapes/data/leftImg8bit_trainvaltest.zip -C datasets/cityscapes/data_unzipped/
+tar -xf datasets/cityscapes/data/rightImg8bit_trainvaltest.zip -C datasets/cityscapes/data_unzipped/
 ```

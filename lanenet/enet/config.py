@@ -19,17 +19,17 @@ class LearningParameters:
 
 @dataclass(init=True)
 class EnetConfig:
+    pretrained_model_path: str
+    train_full_model: bool
+    max_epoch: int
+    dataset_root_folder: str = 'datasets/cityscapes/data_unzipped'
+    image_mode = 'fine'
+    target_types = ['semantic']
     batch_size = 10
     custom_weight_scaling_const = 1.02
-    dataset_root_folder = 'datasets/cityscapes/data_unzipped'
-    image_mode = 'fine'
     image_size = (256, 512)
     scaling_props_range = (1.0, 50.0)
-    target_types = ['semantic']
-    train_full_model: bool
-    pretrained_model_path: str
     learning_params = LearningParameters()
-    max_epoch: int
 
     def __post_init__(self):
         self.target_image_size = self.image_size if self.train_full_model else (
@@ -63,10 +63,10 @@ class EnetConfig:
                 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             model.load_state_dict(checkpoint['model_state_dict'], strict=strict)
 
-    def save_checkpoint(self, model, optimizer, loss, epoch):
+    def save_checkpoint(self, model, optimizer, loss, epoch, root_folder_path=''):
         print(f'Epoch={epoch + 1}/{self.max_epoch}, Loss={loss.item()}')
         model_name = 'enet_model' + ('' if self.train_full_model else '_encoder')
-        filepath = f'pretrained_model/{model_name}_{epoch}.pt'
+        filepath = f'{root_folder_path}pretrained_model/{model_name}_{epoch}.pt'
         print(f'Saving training checkpoint as {filepath} at {datetime.now()}')
         torch.save({
             'epoch': epoch,
