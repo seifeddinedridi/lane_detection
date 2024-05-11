@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: enet_seifeddine_dridi
-Version: 0.0.18
+Version: 0.0.19
 Summary: An implementation of the Enet architecture using PyTorch
 Author-email: Seifeddine Dridi <seifeddine.dridi89@gmail.com>
 Classifier: Programming Language :: Python :: 3
@@ -12,28 +12,17 @@ License-File: LICENSE
 
 # Lane Detection
 
-An implementation of [ENet: A Deep Neural Network Architecture for Real-Time Semantic Segmentation](https://arxiv.org/pdf/1606.02147.pdf).
-
-Tasks to do:
-* <s>Understand what would be the input to Enet loss function (a set of label-polygon pair?)</s>
-* <s>Implement a function for detecting if a 2D point is within the boundaries of a polygon</s>
-* <s>Implement a reader for the cityscapes dataset</s>
-* Check the implementation of the five stages
-* ✅ Learn how max-pooling and max-unpooling internally work
-* ✅ Implement stages four and five
+An implementation
+of [ENet: A Deep Neural Network Architecture for Real-Time Semantic Segmentation](https://arxiv.org/pdf/1606.02147.pdf).
 
 # The ENet model
+
 The model consists of 7 stages:
+
 - Stage 0: Downsamples the input image
 - Stages 1, 2, 3: encoder stages
 - Stages 4, 5: decoder stages
-- Transpose CNN: upsamples the output of stage 5 into the desired target size 
-
-## What would be the output of the model?
-It should output an image where the pixels are labeled with a number ranging from [0..C) where C is the number of classes.
-
-## What would be the input to the loss function?
-TODO
+- Transpose CNN: upsamples the output of stage 5 into the desired target size
 
 ## Install dependencies
 
@@ -41,33 +30,39 @@ TODO
 pip3 install -r requirements.txt
 ```
 
-## Crate virtual environment
+## Crate a virtual environment
+
 ```bash
 python -m venv lane_detection
 ```
 
-## Activate virtual environment
+## Activate the virtual environment
+
 ```bash
 source ./venv/bin/activate
 ```
 
 ## Run unit tests
+
 ```bash
 python3 -m unittest discover
 ```
 
 ## Packaging the project for distribution
+
 ```bash
 python3 -m pip install --upgrade build
 python3 -m build
 ```
 
 Start Jupyter notebook
+
 ```bash
 jupyter notebook
 ```
 
 ## Uploading the distribution archives
+
 ```bash
 python3 -m pip install --upgrade twine
 python3 -m twine upload --repository testpypi dist/*
@@ -75,11 +70,53 @@ python3 -m twine upload --repository testpypi dist/*
 
 ## Howto
 
+### Download the Cityscape dataset
+
+You should already have an account. If you don't, you can request one for free from the Cityscape maintainers.
+
+```bash
+wget -v --keep-session-cookies --save-cookies=cookies.txt --post-data 'username={username}&password={password}&submit=Login' https://www.cityscapes-dataset.com/login/
+```
+
+For downloading packages:
+
+```bash
+wget --load-cookies cookies.txt --content-disposition https://www.cityscapes-dataset.com/file-handling/?packageID=1
+wget --load-cookies cookies.txt --content-disposition https://www.cityscapes-dataset.com/file-handling/?packageID=2
+wget --load-cookies cookies.txt --content-disposition https://www.cityscapes-dataset.com/file-handling/?packageID=3
+wget --load-cookies cookies.txt --content-disposition https://www.cityscapes-dataset.com/file-handling/?packageID=4
+wget --load-cookies cookies.txt --content-disposition https://www.cityscapes-dataset.com/file-handling/?packageID=6
+```
+
+The mapping of package IDs to files:
+
+| Id | Filename                             |
+|----|--------------------------------------|
+| 1  | gtFine_trainvaltest (241MB)          |
+| 2  | gtCoarse.zip (1.3GB)                 |
+| 3  | leftImg8bit_trainvaltest.zip (11GB)  |
+| 4  | leftImg8bit_trainextra.zip (44GB)    |
+| 5  | rightImg8bit_trainvaltest.zip (11GB) |
+| 6  | rightImg8bit_trainextra.zip (44GB)   |
+| 8  | camera_trainvaltest.zip (2MB)        |
+| 9  | camera_trainextra.zip (8MB)          |
+| 10 | vehicle_trainvaltest.zip (2MB)       |
+| 11 | vehicle_trainextra.zip (7MB)         |
+
+### Create the necessary directories
+
+```bash
+mkdir pretrained_model
+mkdir -p datasets/cityscapes/data_unzipped/
+```
+
 ### Unzip the Cityscape dataset
 
 ```bash
-tar -xf datasets/cityscapes/data/gtCoarse.zip -C datasets/cityscapes/data_unzipped/
-tar -xf datasets/cityscapes/data/gtFine_trainvaltest.zip -C datasets/cityscapes/data_unzipped/
-tar -xf datasets/cityscapes/data/leftImg8bit_trainvaltest.zip -C datasets/cityscapes/data_unzipped/
-tar -xf datasets/cityscapes/data/rightImg8bit_trainvaltest.zip -C datasets/cityscapes/data_unzipped/
+unzip -o datasets/cityscapes/data/gtCoarse.zip -d datasets/cityscapes/data_unzipped/
+unzip -o datasets/cityscapes/data/leftImg8bit_trainvaltest.zip -d datasets/cityscapes/data_unzipped/
+unzip -o datasets/cityscapes/data/leftImg8bit_trainextra.zip -d datasets/cityscapes/data_unzipped/
+unzip -o datasets/cityscapes/data/rightImg8bit_trainvaltest.zip -d datasets/cityscapes/data_unzipped/
+unzip -o datasets/cityscapes/data/rightImg8bit_trainextra.zip -d datasets/cityscapes/data_unzipped/
+unzip -o datasets/cityscapes/data/gtFine_trainvaltest.zip -d datasets/cityscapes/data_unzipped/
 ```

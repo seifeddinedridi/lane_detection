@@ -14,6 +14,7 @@ lanenet/enet/dataset/__init__.py
 lanenet/enet/dataset/labels.py
 lanenet/enet/dataset/loader.py
 lanenet/enet/dataset/model.py
+scripts/test_model.py
 test/__init__.py
 test/__main__.py
 test/test_model.py

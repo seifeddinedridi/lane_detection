@@ -3,5 +3,6 @@ dist
 lanenet
 notebook
 pretrained_model
+scripts
 test
 venv

@@ -5,10 +5,9 @@ from lanenet.enet.dataset.labels import labels, id2label
 from lanenet.enet.model import Enet
 
 
-def eval_model(model, dataset_iter, custom_weight_scaling_const, scaling_props_range, device):
+def eval_model(model, dataset_iter, custom_weight_scaling_const, scaling_props_range, device, max_epoch = 10):
     model.train(False)
     average_loss = 0
-    max_epoch = 10
     for epoch in range(max_epoch):
         in_tensor, target = next(dataset_iter)
         in_tensor = in_tensor.to(device)
@@ -48,11 +47,11 @@ def load_model(config, device):
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_params.lr,
                                   weight_decay=config.learning_params.weight_decay, betas=config.learning_params.betas,
                                   eps=config.learning_params.eps)
-    config.load_checkpoint(model, optimizer, device)
+    epoch, loss = config.load_checkpoint(model, optimizer, device)
     model.train()
-    train_dataset = config.load_dataset('train')
+    train_dataset = config.load_dataset('train_extra')
     test_dataset = config.load_dataset('val')
-    return model, optimizer, train_dataset, test_dataset
+    return model, optimizer, train_dataset, test_dataset, epoch, loss
 
 
 def segment_image(model, in_tensor, device):
@@ -69,11 +68,11 @@ def segment_image(model, in_tensor, device):
 def tensor_to_image(logits):
     # Input has shape: (F, H, W)
     out_tensor = torch.zeros(3, logits.shape[1], logits.shape[2]).type(torch.uint8)
-    for r in range(0, logits.shape[1]):  # height
-        for c in range(0, logits.shape[2]):  # width
-            # pixel_class = torch.distributions.Categorical(logits=logits[:, r, c] / 0.05).sample((1,)).item()
-            pixel_class = torch.argmax(logits[:, r, c], dim=0).item()
-            color = id2label[pixel_class][7]
-            out_tensor[:, r, c] = torch.tensor([color[0], color[1], color[2]]).type(torch.int32)
+    for h in range(0, logits.shape[1]):  # height
+        for w in range(0, logits.shape[2]):  # width
+            # pixel_class = torch.distributions.Categorical(logits=logits[:, h, w] / 0.05).sample((1,)).item()
+            pixel_class = torch.argmax(logits[:, h, w], dim=0).item()
+            color = id2label[pixel_class][7] if pixel_class == 7 else [0, 0, 0]
+            out_tensor[:, h, w] = torch.tensor([color[0], color[1], color[2]]).type(torch.int32)
     return transforms.ToPILImage()(out_tensor)
 

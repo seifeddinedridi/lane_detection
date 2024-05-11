@@ -4,6 +4,7 @@ from datetime import datetime
 
 import torch
 import torchvision
+from PIL import Image
 from torch import cuda
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
@@ -23,13 +24,14 @@ class EnetConfig:
     train_full_model: bool
     max_epoch: int
     dataset_root_folder: str = 'datasets/cityscapes/data_unzipped'
-    image_mode = 'fine'
+    image_mode = 'coarse'
     target_types = ['semantic']
     batch_size = 10
     custom_weight_scaling_const = 1.02
     image_size = (256, 512)
     scaling_props_range = (1.0, 50.0)
     learning_params = LearningParameters()
+    device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 
     def __post_init__(self):
         self.target_image_size = self.image_size if self.train_full_model else (
@@ -49,7 +51,15 @@ class EnetConfig:
         num_workers = 2 if cuda.is_available() else os.cpu_count() // 2
         return DataLoader(dataset, batch_size=self.batch_size, num_workers=num_workers, pin_memory=False)
 
+    def load_image_as_tensor(self, image_path):
+        resize_input = transforms.Resize(self.image_size)
+        input_transforms = transforms.Compose([resize_input, transforms.ToTensor()])
+        image = Image.open(image_path)
+        return input_transforms(image).unsqueeze(0)
+
     def load_checkpoint(self, model, optimizer, device):
+        epoch = 0
+        loss = float('inf')
         if self.pretrained_model_path is not None and self.pretrained_model_path != '':
             checkpoint = torch.load(self.pretrained_model_path, map_location=device)
             print(f'Checkpoint file {self.pretrained_model_path} successfully loaded')
@@ -62,6 +72,9 @@ class EnetConfig:
             else:
                 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             model.load_state_dict(checkpoint['model_state_dict'], strict=strict)
+            epoch = checkpoint['epoch']
+            loss = checkpoint['loss']
+        return epoch, loss
 
     def save_checkpoint(self, model, optimizer, loss, epoch, root_folder_path=''):
         print(f'Epoch={epoch + 1}/{self.max_epoch}, Loss={loss.item()}')
