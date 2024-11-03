@@ -1,16 +1,39 @@
 # Lane Detection
+The first part of this project is an implementation of [ENet: A Deep Neural Network Architecture for Real-Time Semantic Segmentation](https://arxiv.org/pdf/1606.02147.pdf).
 
-An implementation
-of [ENet: A Deep Neural Network Architecture for Real-Time Semantic Segmentation](https://arxiv.org/pdf/1606.02147.pdf).
+While the second part is an implementation of [Towards End-to-End Lane Detection: an Instance Segmentation
+Approach](https://arxiv.org/pdf/1802.05591.pdf).
 
 # The ENet model
-
 The model consists of 7 stages:
 
 - Stage 0: Downsamples the input image
 - Stages 1, 2, 3: encoder stages
 - Stages 4, 5: decoder stages
 - Transpose CNN: upsamples the output of stage 5 into the desired target size
+
+# The LaneNet model
+There are 2 branches in the LaneNet model. The first one is the binary segmentation branch, and the second one is the instance segmentation branch.
+
+Both branches share the first 2 stages of the Enet neural network, leaving stage 3 and the full decoder as the backbone of each branch.
+
+The binary segmentation branch finds the pixels forming the lanes and connects them even when they are occluded by objects such as cars.
+It uses the bounded inverse class weighting because the two classes (lane/background) are highly unbalanced.
+
+The instance segmentation branch separates these lane pixels into separate lanes. It does this by using a one-shot method based on distance metric learning.
+This branch is trained to produce an embedding for each lane pixel. In the following stage, those embedding will be clustered together in such a way as to facilitate 
+the process of forming the lanes using polynomial fitting. The lanes are converted into clusters using both pull and push forces.
+
+## Binary segmentation branch
+
+Mean-shift clustering
+
+## Instance segmentation branch
+
+## Transforming the lane pixels into curves
+The prediction of the lanes should be insensitive to the view projection which might greatly change based on the sloping of the road and of course the camera being used.
+
+The least-squares algorithm is used to fit an n-degree polynomial.
 
 ## Install dependencies
 
